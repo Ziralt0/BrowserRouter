@@ -19,3 +19,13 @@ Now everytime a url is clicked, it'll open on the currently open browser
 /register | Adds BrowserRouter to regedit as a browser
 /unregister | Removes BrowserRouter from regedit
 ```
+
+Should be a single-file self-contained build
+
+```bash
+dotnet publish -c Release -r win-x64 --self-contained true ^
+  /p:PublishSingleFile=true ^
+  /p:IncludeNativeLibrariesForSelfExtract=true ^
+  /p:DebugType=None ^
+  /p:DebugSymbols=false
+```
