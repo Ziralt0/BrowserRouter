@@ -44,21 +44,7 @@ internal static class Program
                     PrintHelp();
                     return 0;
                 }
-            else
-                {
-                    // not a recognized command, show help
-                    PrintHelp();
-                    return 0;
-                }
             }
-
-            if (args.Length == 0)
-            {
-                // no args, show help
-                PrintHelp();
-                return 0;
-            }
-
             //invoked as URL handler: BrowserRouter.exe "%1"
             var url = ExtractUrl(args);
             if (string.IsNullOrWhiteSpace(url))
@@ -67,6 +53,7 @@ internal static class Program
             RouteUrl(url);
             return 0;
         }
+        
         catch (Exception ex)
         {
             Debug.WriteLine(ex);
