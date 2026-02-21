@@ -15,17 +15,24 @@ internal static class Program
     private const string ProgId = "BrowserRouterURL";
     private static readonly string ChromePath = @"C:\Program Files\Google\Chrome\Application\chrome.exe";
     private static readonly string BravePath = @"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe";
+    private const uint MB_OK = 0x00000000;
+    private const uint MB_ICONINFORMATION = 0x00000040;
+    private const uint MB_ICONERROR = 0x00000010;
 
     // ==========================================
 
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);
+
     private static int Main(string[] args)
     {
+              
         try
         {
             if (args.Length >= 1)
             {
                 var cmd = args[0].Trim();
-
+                
                 if (IsCommand(cmd, "/register"))
                     return Register();
 
@@ -37,6 +44,19 @@ internal static class Program
                     PrintHelp();
                     return 0;
                 }
+            else
+                {
+                    // not a recognized command, show help
+                    PrintHelp();
+                    return 0;
+                }
+            }
+
+            if (args.Length == 0)
+            {
+                // no args, show help
+                PrintHelp();
+                return 0;
             }
 
             //invoked as URL handler: BrowserRouter.exe "%1"
@@ -59,26 +79,30 @@ internal static class Program
 
     private static void PrintHelp()
     {
-        Console.WriteLine($"{AppDisplayName}");
-        Console.WriteLine();
-        Console.WriteLine("Usage:");
-        Console.WriteLine("  BrowserRouter.exe /register     (run as Administrator)");
-        Console.WriteLine("  BrowserRouter.exe /unregister   (run as Administrator)");
-        Console.WriteLine("  BrowserRouter.exe \"https://...\" (normal URL handling)");
+        var message =
+            $"{AppDisplayName}{Environment.NewLine}{Environment.NewLine}" +
+            $"Usage:{Environment.NewLine}" +
+            "  BrowserRouter.exe /register     (run as Administrator)" + Environment.NewLine +
+            "  BrowserRouter.exe /unregister   (run as Administrator)" + Environment.NewLine +
+            "  BrowserRouter.exe \"https://...\" (normal URL handling)";
+
+        ShowInfo(message);
     }
+
+
 
     private static int Register()
     {
         if (!IsAdmin())
         {
-            Console.Error.WriteLine("ERROR: /register must be run as Administrator.");
+            ShowError("ERROR: /register must be run as Administrator.");
             return 2;
         }
 
         var exePath = Process.GetCurrentProcess().MainModule?.FileName ?? "";
         if (string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
         {
-            Console.Error.WriteLine("ERROR: Could not determine executable path.");
+            ShowError("ERROR: Could not determine executable path.");
             return 3;
         }
 
@@ -133,8 +157,9 @@ internal static class Program
             k!.SetValue("", $"\"{exePath}\" \"%1\"", RegistryValueKind.String);
         }
 
-        Console.WriteLine("Registered. Now set it as default browser:");
-        Console.WriteLine("Settings -> Apps -> Default apps -> Web browser -> Browser Router");
+        ShowInfo(
+            "Registered. Now set it as default browser:" + Environment.NewLine +
+            "Settings -> Apps -> Default apps -> Web browser -> Browser Router");
         return 0;
     }
 
@@ -142,7 +167,7 @@ internal static class Program
     {
         if (!IsAdmin())
         {
-            Console.Error.WriteLine("ERROR: /unregister must be run as Administrator.");
+            ShowError("ERROR: /unregister must be run as Administrator.");
             return 2;
         }
 
@@ -162,8 +187,18 @@ internal static class Program
         // Remove ProgID tree
         Registry.LocalMachine.DeleteSubKeyTree($@"SOFTWARE\Classes\{ProgId}", throwOnMissingSubKey: false);
 
-        Console.WriteLine("Unregistered.");
+        ShowInfo("Unregistered.");
         return 0;
+    }
+
+    private static void ShowInfo(string message)
+    {
+        MessageBoxW(IntPtr.Zero, message, AppDisplayName, MB_OK | MB_ICONINFORMATION);
+    }
+
+    private static void ShowError(string message)
+    {
+        MessageBoxW(IntPtr.Zero, message, AppDisplayName, MB_OK | MB_ICONERROR);
     }
 
     private static bool IsAdmin()
@@ -203,8 +238,8 @@ internal static class Program
     private static void RouteUrl(string url)
     {
         // Decide target
-        var chromeRunning = Process.GetProcessesByName("chrome").Any();
-        var braveRunning = Process.GetProcessesByName("brave").Any();
+        var chromeRunning = Process.GetProcessesByName("chrome").Length != 0;
+        var braveRunning = Process.GetProcessesByName("brave").Length != 0;
 
         var targetExe =
             chromeRunning ? ChromePath :
